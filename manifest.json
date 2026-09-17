@@ -1,0 +1,15 @@
+{
+  "name": "AI/EPS/PSD 导入器",
+  "id": "1378572923768489123",
+  "api": "1.0.0",
+  "main": "code.js",
+  "ui": "ui.html",
+  "capabilities": [],
+  "enableProposedApi": false,
+  "editorType": ["figma"],
+  "networkAccess": {
+    "allowedDomains": ["http://localhost:47823"],
+    "reasoning": "可选的用户本机转换程序，仅通过配对令牌访问回环地址；源文件不上传远程服务器。连接不可用时支持离线转换包。",
+    "devAllowedDomains": ["http://localhost:47823"]
+  }
+}

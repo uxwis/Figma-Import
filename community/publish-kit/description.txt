@@ -1,0 +1,50 @@
+把设计文件，带进 Figma。
+Import design files. Keep creating.
+
+将 PDF、AI、EPS、PSD 等文件直接导入 Figma，在新项目中继续使用已有设计。转换在插件内完成，无需安装 Adobe 或额外转换程序，也不将源文件上传到转换服务器。
+
+支持的文件
+• PDF：每页生成一个画板，导入可解析的路径、文字轮廓和图片；扫描页仍为图片。
+• AI：支持包含可读取 PDF 兼容内容或 PostScript 内容的 Illustrator 文件。
+• EPS / PS：在插件内转换后导入，保留可解析的路径、文字轮廓、图片和画板。
+• PSD / PSB：导入可解析的图层、形状、文字、蒙版、智能对象内容及已支持的效果。
+• .figimport：直接导入已有转换包。
+
+如何使用
+1. 在 Figma Design 文件中打开插件。
+2. 选择文件，或将文件拖入插件面板。
+3. 等待转换与图层创建完成。
+4. 查看导入结果和提示，核对字体与复杂效果，然后继续编辑。
+
+导入说明
+• 优先生成可编辑的 Figma 内容。具体可编辑程度取决于源文件结构、字体和效果；部分内容可能保留为图片，文字可能转为轮廓或使用替代字体。
+• 复杂混合、特殊效果和部分智能对象可能存在差异，不保证所有源文件完全一致。EPS / AI 不恢复全部 Illustrator 专有图层结构。
+• EPS / PS / PostScript AI 单文件上限 64 MB，其他格式上限 256 MB。EPS / PS 转换时限为 3 分钟。复杂文件可能需要按画板拆分后导入。
+• 源文件在当前设备的插件环境中转换；导入后的内容会按 Figma 自身的文件保存机制保存。
+• 当前为社区版预览，插件界面为中文。
+
+────────────────────
+
+Bring existing designs into your Figma workflow.
+
+Import PDF, AI, EPS and PSD files directly into Figma. Conversion runs locally inside the plugin, with no Adobe installation or additional conversion software required. Source files are not uploaded to a conversion server.
+
+Supported files
+• PDF: One artboard per page, with supported paths, text outlines and images. Scanned pages remain images.
+• AI: Illustrator files containing readable PDF-compatible or PostScript content.
+• EPS / PS: In-plugin conversion of supported paths, text outlines, images and artboards.
+• PSD / PSB: Supported layers, shapes, text, masks, smart-object content and effects.
+• .figimport: Import an existing conversion package directly.
+
+How to use
+1. Open the plugin in a Figma Design file.
+2. Select a file or drop it into the plugin panel.
+3. Wait for conversion and layer creation to finish.
+4. Review the results and notices, check fonts and complex effects, then continue editing.
+
+Before you import
+• The plugin prioritizes editable Figma content where supported. Editability depends on the source structure, fonts and effects. Some content may remain as images; text may become outlines or use substituted fonts.
+• Complex blending, special effects and some smart objects may differ from the original. Exact reproduction is not guaranteed. EPS / AI imports do not restore all Illustrator-specific layer structures.
+• File limits: 64 MB for EPS / PS / PostScript AI; 256 MB for other formats. EPS / PS conversion has a 3-minute timeout. Complex files may need to be split by artboard.
+• Source files are converted on your device. Imported content follows Figma's normal file-saving behavior.
+• This is a community preview. The plugin interface is currently in Chinese.

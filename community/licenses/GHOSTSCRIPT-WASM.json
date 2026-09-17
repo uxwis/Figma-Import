@@ -1,0 +1,17 @@
+{
+  "package": "@okathira/ghostpdl-wasm",
+  "version": "1.1.0",
+  "ghostscript": "10.06.0",
+  "packageIntegrity": "sha512-BX0Y8B0G/c0nsf7pZGHPQTZ8IiT4w0IEbZGDnziN4pkcmxU1eEaWI/LA0bfE5Y+uSP3Qj1oZ6JhITOJbJsyE0w==",
+  "repository": "https://github.com/okathira-dev/ghostpdl-wasm",
+  "commit": "a62b7d686b21cf88f6425b3e989d1062b9af4256",
+  "ghostpdlCommit": "2d6e764c1f4a73520ed6de6dd3fa78ad30cd6a63",
+  "artifactModifications": "none; custom type declaration and application adapter added separately",
+  "license": "AGPL-3.0-or-later",
+  "sha256": {
+    "gs.js": "5e7e3b3dfc7afc5e60de8dd6dab66145c75afb74f7d671f711f390b3bb69c6d0",
+    "gs.wasm": "e8aaf3af75da65fe0af8d49b30fa717e4ff13eedbbdc0cdd5700f54fb8f667e6",
+    "compile.sh": "74b91e4035816f519d9ad47ff34e5fc25f2c6b653d1a4ef6c4ef752819b72245",
+    "LICENSE": "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0"
+  }
+}

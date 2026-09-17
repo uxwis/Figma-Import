@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #ffffff;
+    color: #1a1a1a;
+    -webkit-font-smoothing: antialiased;
+  }
+  .container {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    padding: 24px;
+    gap: 20px;
+  }
+  .header { text-align: center; }
+  .logo { font-size: 40px; margin-bottom: 8px; }
+  h1 { font-size: 18px; font-weight: 600; }
+  .sub { font-size: 12px; color: #888; margin-top: 6px; }
+  .sub.error { color: #d93025; }
+
+  .dropzone {
+    border: 2px dashed #ccc;
+    border-radius: 12px;
+    padding: 40px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  .dropzone:hover { border-color: #a259ff; background: #faf5ff; }
+  .dropzone.drag-over { border-color: #a259ff; background: #f0e6ff; }
+  .drop-icon { font-size: 36px; }
+  .drop-text { font-size: 14px; font-weight: 500; }
+  .drop-sub { font-size: 12px; color: #999; }
+
+  .btn-primary {
+    background: #a259ff;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 24px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+    margin-top: 12px;
+  }
+  .btn-primary:hover { background: #8a3df5; }
+  .btn-secondary {
+    background: #f0f0f0;
+    color: #333;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 24px;
+    font-size: 13px;
+    cursor: pointer;
+    margin-top: 12px;
+  }
+  .btn-row { display: flex; gap: 12px; justify-content: center; }
+
+  .formats { display: flex; gap: 8px; justify-content: center; }
+  .badge {
+    background: #f0f0f0;
+    color: #666;
+    font-size: 12px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-family: monospace;
+  }
+
+  .footer { text-align: center; margin-top: auto; }
+  .footer p { font-size: 11px; color: #bbb; }
+
+  .progress-wrap { text-align: center; }
+  .progress-bar {
+    width: 100%;
+    height: 8px;
+    background: #eee;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: #a259ff;
+    border-radius: 4px;
+    transition: width 0.3s;
+  }
+  .progress-num { font-size: 12px; color: #888; margin-top: 8px; }
+
+  .warnings {
+    background: #fff8e6;
+    border: 1px solid #f0d98c;
+    border-radius: 8px;
+    padding: 12px;
+    font-size: 12px;
+    color: #8a6d1a;
+  }
+  .warnings ul { margin: 6px 0 0 18px; }
+  .warnings li { margin: 2px 0; }
+  [hidden] { display: none !important; }
+  .sub { color: #6b6b73; line-height: 1.6; }
+  .container { gap: 18px; }
+  .dropzone { padding: 28px 16px; }
+  .local-card { padding: 16px; border: 1px solid #e6e3eb; border-radius: 10px; }
+  .local-toggle { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .optional { margin-left: auto; font-size: 11px; font-weight: 400; color: #73717b; }
+  .setup-steps { margin: 16px 0 16px 20px; font-size: 12px; line-height: 1.7; }
+  .setup-steps li { padding-left: 3px; margin: 8px 0; }
+  .input-label { display: block; font-size: 12px; margin-bottom: 7px; }
+  #token { width: 100%; border: 1px solid #c9c5d1; border-radius: 7px; padding: 10px; font-size: 12px; }
+  button:disabled { opacity: .55; cursor: wait; }
+  button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px solid #8a3df5; outline-offset: 3px; }
+  .connection-status { font-size: 12px; line-height: 1.6; margin-top: 10px; color: #6b6b73; }
+  .connection-status.connected { color: #167449; }
+  .connection-status.error { color: #b3261e; }
+  .pending-file { font-size: 12px; line-height: 1.6; margin-top: 12px; overflow-wrap: anywhere; }
+  .text-button { border: 0; background: transparent; color: #7332ba; font-size: 12px; cursor: pointer; }
+  .setup-help { font-size: 12px; line-height: 1.7; margin-top: 14px; color: #65616e; }
+  .setup-help summary { cursor: pointer; color: #7332ba; }
+  .setup-help p { margin-top: 10px; }
+  .privacy-note { font-size: 11px; line-height: 1.6; color: #73717b; text-align: center; }
+  .container { padding-bottom: 54px; }
+  .build-info { position: fixed; bottom: 0; left: 0; right: 0; padding: 8px 12px; background: #fafafa; border-top: 1px solid #eceaf0; font-size: 10px; color: #716c7a; text-align: center; overflow-wrap: anywhere; }
+  .build-info.error { color: #b3261e; }
+</style>
+</head>
+<body>
+  <div id="app"></div>
+  <div id="build-info" class="build-info" role="status"></div>
+  <script src="ui.js"></script>
+</body>
+</html>

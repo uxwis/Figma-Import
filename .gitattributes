@@ -1,0 +1,9 @@
+# Stable source line endings across Windows and other platforms.
+* text=auto eol=lf
+*.cmd text eol=crlf
+*.png binary
+*.wasm binary
+*.zip binary
+
+# Preserve the original vendor bytes used by the provenance checks.
+community/vendor/ghostscript/** -text

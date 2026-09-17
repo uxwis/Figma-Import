@@ -1,0 +1,26 @@
+[
+  {
+    "file": "thumbnail-1920x1080.png",
+    "width": 1920,
+    "height": 1080,
+    "bytes": 202203
+  },
+  {
+    "file": "gallery-01-workflow-1920x1080.png",
+    "width": 1920,
+    "height": 1080,
+    "bytes": 224605
+  },
+  {
+    "file": "gallery-02-formats-1920x1080.png",
+    "width": 1920,
+    "height": 1080,
+    "bytes": 149249
+  },
+  {
+    "file": "gallery-03-layers-1920x1080.png",
+    "width": 1920,
+    "height": 1080,
+    "bytes": 142032
+  }
+]
