@@ -66,7 +66,7 @@ await test('At most three notices; missing content cannot be buried; all node is
  const d=diagnostic('stroke-miter-limit','unsupported',{strokeAppearance:'unchanged',issues:[{code:'stroke-miter-limit',message:'unchanged'},{code:'missing-content',message:'missing'},{code:'shadow-contour',message:'shadow'}]});
  const notices=summarizeImport([...Array(1000).fill(d),diagnostic('text-fallback','rasterized',{sourceId:'text'}),diagnostic('postscript-font')]);
  assert.deepEqual(notices.map(n=>n.category),['content','text','appearance']);assert.ok(notices.every(n=>!n.message.includes('private layer')));
- assert.match(notices[1].message,/图片或使用替代字体/);
+ assert.match(notices[1].message,/已转为图片/);assert.match(notices[1].message,/原字体缺失，已使用默认字体替代/);
 });
 await test('No warnings for equivalent strokes; no image/outline/font clause unless applicable',()=>{
  assert.deepEqual(summarizeImport([diagnostic('stroke-miter-limit','editable',{strokeAppearance:'unchanged'})]),[]);
@@ -75,6 +75,10 @@ await test('No warnings for equivalent strokes; no image/outline/font clause unl
  assert.deepEqual(summarizeImport([diagnostic('missing-content','unsupported',{recovery:true})]),[]);
  assert.equal(summarizeImport([diagnostic('text-fallback','rasterized')])[0].message,'部分文字已转为图片，请核对字形与排版。');
  assert.equal(summarizeImport([diagnostic('created','outlined-text')])[0].message,'部分文字已转为轮廓，请核对字形与排版。');
+ assert.equal(summarizeImport([diagnostic('text-font-substitution','editable')])[0].message,'部分文字使用替代字体，请核对字形与排版。');
+ assert.equal(summarizeImport([diagnostic('postscript-font')])[0].message,'EPS/PS 转换时原字体缺失，已使用默认字体替代，请核对字形与排版。');
+ assert.deepEqual(summarizeImport([diagnostic('pdf-text-encoding')]),[{category:'text',message:'部分文字编码无法读取，已用替代字符保留可编辑位置，请核对字形与排版。'}]);
+ assert.equal(summarizeImport([diagnostic('text-default-font','editable')])[0].message,'部分文字的原字体缺失或无法加载，已使用默认字体替代并保留可编辑文字，请核对字形与排版。');
  assert.equal(summarizeImport([diagnostic('smart-warp','rasterized')]).length,1);
  assert.deepEqual(summarizeImport([diagnostic('missing-linked-content')]).map(n=>n.category),['content']);
  assert.equal(importError(new Error('Exceeded memory limit')),MEMORY_ERROR);assert.equal(importError('导入已取消'),'导入已取消');

@@ -1,29 +1,16 @@
 {
-  "name": "figma-import-ai-eps-psd",
-  "version": "2.0.0-beta.5",
-  "description": "将 .ai / .eps / .psd 文件导入 Figma 的插件",
-  "type": "module",
+  "name": "figimport-repository",
+  "private": true,
+  "description": "FigImport 社区版仓库命令入口",
   "scripts": {
-    "build": "node build.mjs",
-    "watch": "node build.mjs --watch",
-    "typecheck": "tsc -p tsconfig.code.json --noEmit && tsc -p tsconfig.ui.json --noEmit",
-    "test": "npm run typecheck && node tests/core.mjs",
-    "test:samples": "node tests/samples.mjs",
-    "test:browser": "node tests/browser.mjs",
-    "test:compiled": "node tests/compiled-import.mjs",
-    "package": "npm run build && node scripts/package.mjs"
-  },
-  "devDependencies": {
-    "@figma/plugin-typings": "^1.138.0",
-    "@napi-rs/canvas": "^1.0.8",
-    "esbuild": "^0.21.5",
-    "jsdom": "^29.1.1",
-    "playwright": "1.62.1",
-    "typescript": "^5.9.3"
-  },
-  "dependencies": {
-    "ag-psd": "31.0.2",
-    "fflate": "0.8.2",
-    "pdfjs-dist": "6.3.289"
+    "build": "npm --prefix community run build",
+    "typecheck": "npm --prefix community run typecheck",
+    "test": "npm --prefix community test",
+    "test:text": "npm --prefix community run test:text",
+    "test:pdf-text": "npm --prefix community run test:pdf-text",
+    "test:browser": "npm --prefix community run test:browser",
+    "test:ui": "npm --prefix community run test:ui",
+    "test:bundle": "npm --prefix community run test:bundle",
+    "package": "npm --prefix community run package"
   }
 }

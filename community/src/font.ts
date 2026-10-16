@@ -33,6 +33,9 @@ const FAMILY_ALIASES: Record<string, string> = {
   sfuidisplay: 'SF UI Display',
   roboto: 'Roboto',
   inter: 'Inter',
+  dinpro: 'DIN Pro',
+  adobeheitistd: 'Adobe Heiti Std',
+  alibabapuhuiti: 'Alibaba PuHuiTi',
 };
 
 const WEIGHT_PATTERNS: Array<[RegExp, string]> = [
@@ -80,7 +83,8 @@ export function parseFontName(name: string | undefined | null): FontRef {
   const stylePart = dash >= 0 ? cleaned.slice(dash + 1) : '';
 
   // Adobe 的 PostScript 名常带 MT / PS / PSMT 这类实现后缀
-  const normStyle = stylePart.replace(/(PSMT|PS|MT)$/g, '');
+  const strippedStyle = stylePart.replace(/(PSMT|PS|MT)$/g, '');
+  const normStyle = ({R:'Regular',L:'Light',M:'Medium',B:'Bold'} as Record<string,string>)[strippedStyle] || strippedStyle;
   const normFamily = familyPart.replace(/(PSMT|PS|MT)$/g, '');
 
   const bold = WEIGHT_PATTERNS.some(([re]) => re.test(normStyle)) && /bold|black|heavy|fett/i.test(normStyle);

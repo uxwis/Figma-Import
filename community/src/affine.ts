@@ -1,6 +1,7 @@
 import type {Matrix,ParsedVector,Paint} from './types';
 import {identity,inverse,multiply,issue} from './scene';
 import {emptyBox,extendBox,extendBoxCubic,boxWidth,boxHeight,type Box} from './svg';
+import {translateCanonicalPath} from './parsers/pdfBatch';
 export const point=(m:Matrix,x:number,y:number):[number,number]=>[m[0]*x+m[2]*y+m[4],m[1]*x+m[3]*y+m[5]];
 /** Our native paths contain absolute M/L/H/V/C/Q/Z only. SVG asset paths stay inside SVG. */
 export function mapPath(data:string,m:Matrix):{data:string;box:Box}{
@@ -33,7 +34,7 @@ export function bakeVector(n:ParsedVector,parent:Matrix):ParsedVector{
  const m=nodeMatrix(n,parent),out={...n,transform:undefined},paths=n.paths!.map(p=>({...p,...mapPath(p.data,m)})),box=emptyBox();
  for(const p of paths){extendBox(box,p.box.minX,p.box.minY);extendBox(box,p.box.maxX,p.box.maxY);}
  out.x=box.minX;out.y=box.minY;out.width=boxWidth(box);out.height=boxHeight(box);
- out.paths=paths.map(p=>({...p,data:mapPath(p.data,[1,0,0,1,-out.x,-out.y]).data}));
+ out.paths=paths.map(p=>({...p,data:translateCanonicalPath(p.data,-out.x,-out.y)}));
  const local=multiply([1,0,0,1,-out.x,-out.y],m);
  const paint=(p:Paint):Paint=>({...p,transform:p.transform?multiply(p.transform,inverse(local)):undefined});
  out.fills=n.fills?.map(paint);out.strokes=n.strokes?.map(paint);

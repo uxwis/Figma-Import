@@ -1,0 +1,38 @@
+{
+  "pluginVersion": "2.1.0-preview.7",
+  "titleLength": 17,
+  "bodyLength": 645,
+  "images": [
+    {
+      "file": "01-cover.png",
+      "width": 1200,
+      "height": 1600,
+      "bytes": 214852
+    },
+    {
+      "file": "02-content.png",
+      "width": 1200,
+      "height": 1600,
+      "bytes": 155923
+    },
+    {
+      "file": "03-workflow.png",
+      "width": 1200,
+      "height": 1600,
+      "bytes": 134607
+    },
+    {
+      "file": "04-formats.png",
+      "width": 1200,
+      "height": 1600,
+      "bytes": 152048
+    },
+    {
+      "file": "05-notes.png",
+      "width": 1200,
+      "height": 1600,
+      "bytes": 170135
+    }
+  ],
+  "preview": "All 5 images loaded; copy fields match source; body copy button checked; no page errors."
+}

@@ -18,7 +18,7 @@ const report=[];
 async function open({shortTimeout=false}={}){
   const page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));
   await page.setContent('<style>body{margin:0}</style>');
-  await page.addScriptTag({content:'window.__host=('+pluginHost.toString().replace('allow-scripts allow-same-origin allow-downloads','allow-scripts allow-downloads')+')();window.figma=window.__host.figma;'});
+  await page.addScriptTag({content:'window.__host=('+pluginHost.toString().replace('allow-scripts allow-same-origin allow-downloads','allow-scripts allow-downloads')+')({fonts:[{family:"Inter",style:"Regular"}]});window.figma=window.__host.figma;'});
   await page.addScriptTag({content:'window.addEventListener("message",event=>{if(event.data?.pluginMessage?.type==="import")window.__scene=event.data.pluginMessage.result;});'});
   const csp='<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'unsafe-inline\' \'wasm-unsafe-eval\' blob:; worker-src blob:; connect-src \'none\'; img-src data: blob:; style-src \'unsafe-inline\';">';
   const time=shortTimeout?'<script>const originalTimeout=window.setTimeout.bind(window);window.setTimeout=(f,t,...a)=>originalTimeout(f,t===180000?100:t,...a);</script>':'';
@@ -30,6 +30,7 @@ async function open({shortTimeout=false}={}){
 async function successful(name,buffer,boards=1){
   const {page,frame}=await open();
   console.log('CHECK',name);
+  if(name==='duplicate-text.eps')await frame.locator('body').evaluate(()=>{const OriginalWorker=Worker;window.Worker=class extends OriginalWorker{constructor(...args){super(...args);this.addEventListener('message',event=>{if(event.data?.pdf)window.__convertedPdf=Array.from(new Uint8Array(event.data.pdf));});}};});
   await frame.locator('#file').setInputFiles({name,mimeType:'application/octet-stream',buffer});
   await Promise.race([
     page.waitForFunction(()=>window.__host.messages.some(m=>m.type==='done'),{},{timeout:90000}),
@@ -39,8 +40,25 @@ async function successful(name,buffer,boards=1){
   assert.equal(result.error,undefined,JSON.stringify(result));assert.equal(result.stats.artboards,boards);
   if(name==='shapes.eps'||name==='binary.eps')assert.deepEqual(await page.evaluate(()=>({width:window.__scene.width,height:window.__scene.height})),{width:240,height:160});
   if(name.endsWith('.eps')||name.endsWith('.ps')||name==='legacy.ai'){
-    assert.ok(result.nativeStats.vectors>0);assert.equal(result.nativeStats.images,0,'PostScript vectors must not become a page bitmap');
+    assert.ok(result.nativeStats.vectors+result.nativeStats.texts>0);assert.equal(result.nativeStats.images,0,'PostScript vectors must not become a page bitmap');
   }
+  if(name==='pages.ps'||name==='missing-font.ps'||name==='editable-text.eps'||name==='editable-legacy.ai'){
+    assert.ok(result.nativeStats.texts>0,'PostScript text must be native editable TEXT');assert.equal(result.stats.outlinedTexts,0);
+    const texts=await page.evaluate(()=>window.__host.figma.currentPage.findAll(n=>n.type==='TEXT').map(n=>({characters:n.characters,font:n.fontName})));
+    assert.equal(texts[0].characters,name==='missing-font.ps'?'Test':name==='pages.ps'?'Vector text':'Editable EPS');
+    assert.equal(texts[0].font.family,'Inter');
+    assert.match(await frame.locator('body').innerText(),/原字体缺失或无法加载，已使用默认字体替代并保留可编辑文字/);
+  }
+  if(name==='paragraph-text.eps'){
+    const texts=await page.evaluate(()=>figma.currentPage.findAll(n=>n.type==='TEXT').map(n=>n.characters));
+    assert.deepEqual(texts,['First line of this paragraph.\nSecond line of this paragraph.']);assert.equal(result.stats.outlinedTexts,0);
+  }
+  if(name==='duplicate-text.eps'||name==='duplicate-text.pdf'){
+    if(name.endsWith('.eps'))await fs.writeFile('.test-output/duplicate-text.pdf',Buffer.from(await frame.locator('body').evaluate(()=>window.__convertedPdf)));
+    await fs.writeFile('.test-output/duplicate-text-scene.json',JSON.stringify(await page.evaluate(()=>window.__scene),null,2));
+    assert.equal(result.nativeStats.texts,1);assert.equal(result.nativeStats.vectors,0,'The exact outline of the same visible text must be removed');
+  }
+  if(name==='semantic-font.pdf'){assert.equal(result.nativeStats.texts,1);assert.equal(result.nativeStats.vectors,1);assert.equal(await page.evaluate(()=>figma.currentPage.findAll(n=>n.type==='TEXT')[0].characters),'AB');}
   report.push({name,stats:result.stats,nativeStats:result.nativeStats});await page.close();return result;
 }
 try{
@@ -49,6 +67,31 @@ try{
   await successful('shapes.eps',Buffer.from(eps));
   await successful('pages.ps',Buffer.from(ps),2);
   await successful('legacy.ai',Buffer.from(eps));
+  const editable='%!PS-Adobe-3.0 EPSF-3.0\n%%BoundingBox: 0 0 240 160\n/Helvetica findfont 20 scalefont setfont 10 50 moveto (Editable EPS) show showpage\n%%EOF\n';
+  await successful('editable-text.eps',Buffer.from(editable));
+  await successful('editable-legacy.ai',Buffer.from(editable));
+  await successful('paragraph-text.eps',Buffer.from('%!PS-Adobe-3.0 EPSF-3.0\n%%BoundingBox: 0 0 320 160\n/Helvetica findfont 12 scalefont setfont 10 100 moveto (First line of this paragraph.) show 10 84 moveto (Second line of this paragraph.) show showpage\n%%EOF\n'));
+  await successful('duplicate-text.eps',Buffer.from('%!PS-Adobe-3.0 EPSF-3.0\n%%BoundingBox: 0 0 240 160\n/Helvetica findfont 20 scalefont setfont 10 50 moveto (Hello) false charpath fill 10 50 moveto (Hello) show showpage\n%%EOF\n'));
+  await successful('duplicate-text.pdf',await fs.readFile('.test-output/duplicate-text.pdf'));
+  await successful('semantic-font.pdf',await fs.readFile('.test-output/semantic-fixture.pdf'));
+  // Reproduce the reported creation-stage stall with a font API that never
+  // settles. Cancellation must finish without waiting for that host Promise.
+  const stalled=await open();
+  await stalled.page.evaluate(()=>{
+    window.__originalFonts=figma.listAvailableFontsAsync;
+    figma.listAvailableFontsAsync=()=>new Promise(resolve=>{window.__releaseFonts=resolve;});
+  });
+  await stalled.frame.locator('#file').setInputFiles({name:'stalled-text.eps',mimeType:'application/postscript',buffer:Buffer.from(editable)});
+  await stalled.frame.locator('#msg').filter({hasText:'正在读取 Figma 字体…'}).waitFor({timeout:90000});
+  await stalled.frame.locator('#cancel').click();
+  await stalled.frame.locator('.error').filter({hasText:'导入已取消'}).waitFor({timeout:5000});
+  assert.equal(await stalled.page.evaluate(()=>figma.currentPage.children.length),0);
+  await stalled.page.evaluate(()=>{window.__releaseFonts([{fontName:{family:'Inter',style:'Regular'}}]);figma.listAvailableFontsAsync=window.__originalFonts;});
+  await stalled.frame.locator('#back').click();
+  await stalled.frame.locator('#file').setInputFiles({name:'retry-text.eps',mimeType:'application/postscript',buffer:Buffer.from(editable)});
+  await stalled.frame.locator('#again').waitFor({timeout:90000});
+  assert.equal(await stalled.page.evaluate(()=>figma.currentPage.findAll(n=>n.type==='TEXT').length),1);
+  await stalled.page.close();
   const header=Buffer.alloc(30);header.writeUInt32LE(0xc6d3d0c5,0);header.writeUInt32LE(30,4);header.writeUInt32LE(Buffer.byteLength(eps),8);
   await successful('binary.eps',Buffer.concat([header,Buffer.from(eps),Buffer.from('unused preview')]));
   await successful('compatible.ai',await fs.readFile('.test-output/operator-fixture.pdf'));

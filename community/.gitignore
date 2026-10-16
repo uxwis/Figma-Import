@@ -1,6 +1,8 @@
 node_modules/
 dist/
 .test-output/
+.cleanup-archive/
+test-assets/
 *.log
 /code.js
 /ui.js

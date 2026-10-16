@@ -2,10 +2,17 @@
  * Private operator payloads are isolated here and pinned by regression fixtures. */
 import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { WorkerMessageHandler } from 'pdfjs-dist/legacy/build/pdf.worker.mjs';
-import type { Matrix, Paint, ParsedNode, ParsedVector, ParseOptions, ParseResult, RGB } from '../types';
+import type { Matrix, Paint, ParsedNode, ParsedVector, ParsedText, ParsedTextStyleRun, ParseOptions, ParseResult, RGB } from '../types';
 import { identity, inverse, multiply, finishScene, checkCancelled, issue } from '../scene';
 import { createCanvas, toPng } from '../canvas';
 import { blendName, solid } from './psdPaint';
+import {parseFontName} from '../font';
+import {batchPdfPaths} from './pdfBatch';
+import {simplifyPdfClips,rectangleClip,containsBox} from './pdfClip';
+import {mergePdfParagraphs} from './pdfParagraphs';
+import {PdfTextDuplicates} from './pdfTextDuplicates';
+import {mapPath} from '../affine';
+import {PdfSemanticText,type SemanticGlyph} from './pdfSemanticText';
 (globalThis as typeof globalThis & {pdfjsWorker?:unknown}).pdfjsWorker={WorkerMessageHandler};
 const names=new Map<number,string>(Object.entries(pdfjs.OPS).map(([k,v])=>[v,k]));
 type ObjStore={get(id:string,callback?:(v:any)=>void):any;has(id:string):boolean};
@@ -13,7 +20,7 @@ type Page={view:number[];getViewport(options:{scale:number}):{width:number;heigh
   getOperatorList():Promise<{fnArray:number[];argsArray:any[][]}>;objs:ObjStore;commonObjs:ObjStore};
 type State={ctm:Matrix;fill:Paint;stroke:Paint;fillAlpha:number;strokeAlpha:number;blend:string;
  width:number;cap:'NONE'|'ROUND'|'SQUARE';join:'MITER'|'ROUND'|'BEVEL';dash:number[];miter:number;
- clips:ParsedVector[];font?:any;fontSize:number;tm:Matrix;tx:number;ty:number;lx:number;ly:number;
+ clips:ParsedNode[];font?:any;fontSize:number;tm:Matrix;tx:number;ty:number;lx:number;ly:number;
  hscale:number;char:number;word:number;leading:number;rise:number;mode:number;visible:boolean;issues:{code:string;message:string}[]};
 function cssColor(value:string):RGB {
  if(value==='transparent')return{r:0,g:0,b:0,a:0};
@@ -73,16 +80,29 @@ export async function parsePage(page:Page,options:ParseOptions,progress:(p:numbe
  let s:State={ctm:view.transform as Matrix,fill:solid({r:0,g:0,b:0}),stroke:solid({r:0,g:0,b:0}),fillAlpha:1,strokeAlpha:1,blend:'NORMAL',
  width:1,cap:'NONE',join:'MITER',dash:[],miter:10,clips:[],fontSize:0,tm:identity(),tx:0,ty:0,lx:0,ly:0,hscale:1,char:0,word:0,leading:0,rise:0,mode:0,visible:true,issues:[]};
  const stack:State[]=[],groups:{dest:ParsedNode[];state:State}[]=[];
- const clipRuns=new WeakMap<ParsedNode[],{clips:ParsedVector[];outer:ParsedNode;inner:ParsedNode[]}>();
+ let textClips:ParsedNode[]=[],textObject=0,textSpan=0,tagSerial=0;
+ const tags:(string|undefined)[]=[],duplicates=new PdfTextDuplicates(),glyphPaths=new Map<string,string|undefined>();
+ const semantic=new PdfSemanticText(),markedInfo:{name:string;id?:number}[]=[];
+ const contexts=new WeakMap<ParsedNode[],number>(),clipKeys=new WeakMap<ParsedNode,string>();let contextSerial=0;
+ const pageBox={x:0,y:0,right:view.width,bottom:view.height};
+ const scope=()=>{
+  if(!contexts.has(dest))contexts.set(dest,contextSerial++);
+  const clips=s.clips.map(c=>{let key=clipKeys.get(c);if(key===undefined){const r=rectangleClip(c);key=r&&containsBox(r,pageBox)?'':JSON.stringify(c);clipKeys.set(c,key);}return key;}).filter(Boolean);
+  return contexts.get(dest)+'|'+[...new Set(clips)].join('|');
+ };
+ const clipRuns=new WeakMap<ParsedNode[],{clips:ParsedNode[];outer:ParsedNode;inner:ParsedNode[]}>();
  const marked:boolean[]=[];
+ const paragraphTag=(value:any)=>{const name=typeof value==='string'?value:value?.name;return /^(P|H[1-6]?|LBody)$/.test(name)?name+'-'+tagSerial++:undefined;};
  const add=(n:ParsedNode)=>{
  n.sourceId='pdf/page-'+pageNumber+'/op-'+serial++;n.blendMode??=s.blend;n.visible??=s.visible;
+ duplicates.scope(n,scope());
+ if(markedInfo.some(m=>m.name==='Artifact'))semantic.mark(n);
  if(s.issues.length){n.issues=[...n.issues||[],...s.issues];n.fidelity='unsupported';}
  if(!s.clips.length){dest.push(n);return;}
  const run=clipRuns.get(dest);
  if(run&&dest[dest.length-1]===run.outer&&run.clips.length===s.clips.length&&run.clips.every((c,i)=>c===s.clips[i])){run.inner.push(n);return;}
  const inner:ParsedNode[]=[n];let children=inner,outer:ParsedNode=n;
- for(let i=s.clips.length-1;i>=0;i--){outer={kind:'mask',name:'裁剪',mask:structuredClone(s.clips[i]),maskType:'VECTOR',children};children=[outer];}
+ for(let i=s.clips.length-1;i>=0;i--){outer={kind:'mask',name:'裁剪',mask:structuredClone(s.clips[i]),maskType:s.clips[i].kind==='vector'?'VECTOR':'ALPHA',children};children=[outer];}
  dest.push(outer);clipRuns.set(dest,{clips:[...s.clips],outer,inner});
  };
  const unsupported=(code:string,message:string)=>add({kind:'group',name:message,children:[],fidelity:'unsupported',issues:[{code,message}]});
@@ -101,29 +121,84 @@ export async function parsePage(page:Page,options:ParseOptions,progress:(p:numbe
  if(pendingClip!==undefined){const mask=geometry(cmds,s.ctm,box,pendingClip);mask.name='PDF 裁剪路径';mask.fills=[solid({r:1,g:1,b:1})];s.clips.push(mask);pendingClip=undefined;}
  };
  const setFont=async(id:string,size:number)=>{s.font=await object(page,id);s.fontSize=size;};
- async function text(glyphs:any[]){
+ async function text(glyphs:any[],replacement=false){
  if(!s.font){unsupported('pdf-font','缺少 PDF 字体');return;}
  const f=s.font,size=Math.abs(s.fontSize),direction=s.fontSize<0?-1:1,hs=s.hscale*direction;
- if(f.isType3Font||f.vertical){unsupported('pdf-text-layout','Type3 或竖排 PDF 字体尚未支持，请在原软件中转曲后重试');return;}
- let advance=0;
- for(const g of glyphs){if(typeof g==='number'){advance-=g*size/1000;continue;}
- const id=f.loadedName+'_path_'+g.fontChar;
- const glyph=page.commonObjs.has(id)?page.commonObjs.get(id):undefined;
- // PDF.js may append closePath (DrawOPS 4) to a glyph with no contours.
- // It has no geometry, even when isSpace is false; still advance below.
- const emptyOutline=glyph?.path!==undefined&&numbers(glyph.path).every(op=>op===4);
- if(glyph?.path?.length && !emptyOutline && s.mode!==3){
- // PDF.js font paths are already normalized to em units and point upward.
- const tm=multiply(s.ctm,multiply(s.tm,[hs*size,0,0,direction*size,s.tx+hs*advance,s.ty+s.rise]));
- const v=geometry(glyph.path,tm);v.name=g.unicode||'字形';v.sourceType='pdf-glyph';v.fidelity='outlined-text';
- const paint=(p:Paint,alpha:number)=>({...p,opacity:alpha,transform:p.transform?multiply(p.transform,multiply(inverse(s.ctm),v.transform!)):undefined});
- v.fills=(s.mode&3)===1?[]:[paint(s.fill,s.fillAlpha)];v.strokes=(s.mode&3)===0?[]:[paint(s.stroke,s.strokeAlpha)];v.strokeWidth=s.width/Math.max(size,0.001);
- if(g.accent)issue(v,'pdf-glyph-accent','组合字形的独立重音尚未支持，请核对文字外观');
- if(s.mode>=4){s.issues.push({code:'pdf-text-clip',message:'文字裁剪尚未支持'});}add(v);
- }else if(!emptyOutline&&!g.isSpace&&s.mode!==3)unsupported('pdf-missing-outline','无法取得字形轮廓：'+(g.unicode||'?'));
- advance+=g.width*size*(f.fontMatrix?.[0]??0.001)+(s.char+(g.isSpace?s.word:0))*direction;
- }s.tx+=advance*hs;
+ // A TJ displacement is letter spacing inside a text span, not a new layer.
+ if(!size||Math.abs(hs)<1e-9)return;
+ const readable=(g:any)=>replacement&&g.unicode==='\uFFFD'||typeof g.unicode==='string'&&g.unicode.length>0&&!/[\u0000-\u0008\u000b\u000c\u000e-\u001f\ue000-\uf8ff\ufffd]/.test(g.unicode);
+ const editable=size>0&&Math.abs(hs)>1e-9&&glyphs.every(g=>typeof g==='number'||readable(g));
+ if(editable){
+   const parsed=parseFontName(f.name),font={candidates:parsed.candidates,style:parsed.style,postScriptName:f.name};
+   let advance=0,runStart=0,characters='',verticalX=0,verticalY=0;
+   let runs:ParsedTextStyleRun[]=[],ink:{data:string;matrix:Matrix}[]=[],semanticGlyphs:SemanticGlyph[]=[];const span=textSpan++;
+   let emptyType3=false,semanticEligible=!!f.isType3Font;
+   const glyphInk=(g:any,x:number,y:number)=>{
+    const proc=f.isType3Font?f.charProcOperatorList?.get(g.operatorListId):undefined;
+    if(!/^\s*$/.test(g.unicode)&&!(proc?.fnArray.length===1&&proc.fnArray[0]===pdfjs.OPS.setCharWidthAndBounds))semanticEligible=false;
+    if(proc?.fnArray.length===1&&proc.fnArray[0]===pdfjs.OPS.setCharWidthAndBounds){
+     emptyType3=true;const a=proc.argsArray[0];
+     if(!/^\s*$/.test(g.unicode)&&a[4]!==a[2]&&a[5]!==a[3]){
+      const m=multiply(s.ctm,multiply(s.tm,multiply([hs*size,0,0,direction*size,x,y],f.fontMatrix||identity())));
+      // Some empty semantic fonts encode the ascender extent as a height,
+      // yielding reversed d1 Y bounds for elevated punctuation (* and -).
+      const top=a[5]<a[3]&&a[5]>0?a[3]+a[5]:a[5];
+      const data='M'+a[2]+' '+a[3]+'L'+a[4]+' '+a[3]+'L'+a[4]+' '+top+'L'+a[2]+' '+top+'Z';
+      semanticGlyphs.push({start:characters.length-g.unicode.length,end:characters.length,box:mapPath(data,m).box,repairedAscent:top!==a[5]});
+     }
+    }
+    const id=f.loadedName+'_path_'+g.fontChar;
+    if(!glyphPaths.has(id)){
+     const store=id.startsWith('g_')?page.commonObjs:page.objs;
+     const path=store.has(id)?store.get(id)?.path:undefined;
+     glyphPaths.set(id,path?.length?decodeDrawPath(path):undefined);
+    }
+    const path=glyphPaths.get(id);if(!path)return;
+    ink.push({data:path,matrix:multiply(s.ctm,multiply(s.tm,[hs*size,0,0,direction*size,x,y]))});
+   };
+   const flush=()=>{
+     if(!characters)return;
+     const matrix=multiply(s.ctm,multiply(s.tm,[hs,0,0,-direction,s.tx+hs*(f.vertical?verticalX:runStart),s.ty+s.rise-(f.vertical?verticalY*direction:0)]));
+     const mode=s.mode&3,localPaint=(p:Paint,alpha:number)=>({...p,opacity:(p.opacity??1)*alpha});
+     const compact:ParsedTextStyleRun[]=[];for(const run of runs){const previous=compact[compact.length-1];if(previous&&previous.tracking===run.tracking)previous.length+=run.length;else compact.push({...run});}
+     const n:ParsedText={kind:'text',name:characters,sourceType:'pdf-text',characters,x:0,y:0,fontSize:size,font,color:s.fill.color,
+       fillOpacity:(s.fill.opacity??1)*s.fillAlpha,tracking:s.char*direction/size*1000,baseline:0,transform:matrix,visible:mode===3?false:s.visible,
+       pdfTextPaints:{fills:mode===0||mode===2?[localPaint(s.fill,s.fillAlpha)]:[],strokes:mode===1||mode===2?[localPaint(s.stroke,s.strokeAlpha)]:[],strokeWidth:s.width,reference:[...s.ctm]},
+       styleRuns:compact,pdfLayout:{object:textObject,span,tag:tags.filter(Boolean).slice(-1)[0],vertical:!!f.vertical,advance:advance-runStart},
+       sourceData:{pdfFontName:f.name,pdfAdvance:advance-runStart}};
+     const boxes=ink.map(g=>mapPath(g.data,g.matrix).box).filter(b=>Number.isFinite(b.minX));
+     if(boxes.length){const x=Math.min(...boxes.map(b=>b.minX)),y=Math.min(...boxes.map(b=>b.minY));n.pdfLayout!.bounds={x,y,width:Math.max(...boxes.map(b=>b.maxX))-x,height:Math.max(...boxes.map(b=>b.maxY))-y};}
+     if(f.isType3Font||f.vertical)issue(n,'text-layout-approximation','特殊 PDF 字体或竖排文字已保留可编辑内容，请核对字形与排版',false);
+     const markedId=markedInfo.filter(m=>m.id!==undefined).slice(-1)[0]?.id;
+     if(emptyType3&&semanticEligible&&markedId!==undefined){n.pdfLayout!.tag='semantic-'+markedId;semantic.text(n,semanticGlyphs);}
+     else if(emptyType3&&semanticEligible){n.visible=false;issue(n,'pdf-text-semantic-unmatched','PDF 的空字形文字未包含可对应的标记；已保留隐藏的可编辑内容，避免与原外观叠加。',false);}
+     if(s.mode>=4)textClips.push({...n,sourceId:undefined,name:'文字裁剪 · '+characters,visible:true,blendMode:'NORMAL',pdfTextPaints:undefined,color:{r:1,g:1,b:1},fillOpacity:1});
+     if(s.mode!==7){add(n);for(const g of ink)duplicates.glyph(n,g.data,g.matrix,scope());}
+     characters='';runStart=advance;runs=[];ink=[];semanticGlyphs=[];emptyType3=false;
+   };
+   for(const g of glyphs){
+     if(typeof g==='number'){if(g){if(f.vertical){flush();advance+=g*size/1000;runStart=advance;}else{advance-=g*size/1000;if(runs.length)runs[runs.length-1].tracking=(runs[runs.length-1].tracking||0)-g;else runStart=advance;}}continue;}
+     if(!characters)runStart=advance;
+     characters+=g.unicode;
+     runs.push({length:g.unicode.length,tracking:(s.char+(g.isSpace?s.word:0))*direction/size*1000});
+     if(f.vertical){
+       const metric=g.vmetric||f.defaultVMetrics||[-1000,g.width/2,880],scale=size*(f.fontMatrix?.[0]??0.001);
+       verticalX=-(g.vmetric?metric[1]:g.width/2)*scale;verticalY=advance+metric[2]*scale;
+       glyphInk(g,s.tx+hs*verticalX,s.ty+s.rise-verticalY*direction);
+       advance+=-metric[0]*scale-(s.char+(g.isSpace?s.word:0))*direction;flush();continue;
+     }
+     glyphInk(g,s.tx+hs*advance,s.ty+s.rise);
+     advance+=g.width*size*(f.fontMatrix?.[0]??0.001)+(s.char+(g.isSpace?s.word:0))*direction;
+   }
+   flush();if(f.vertical)s.ty-=advance;else s.tx+=advance*hs;return;
  }
+ // No outline fallback: mark undecodable content explicitly and retain its
+ // placement as an editable replacement character.
+ unsupported('pdf-text-encoding','部分 PDF 文字缺少有效文字编码，已用替代字符保留可编辑位置，请核对原文件。');
+ const safe=glyphs.map(g=>typeof g==='number'||readable(g)?g:{...g,unicode:'\uFFFD'});
+ await text(safe,true);
+ }
+
  async function shading(id:string,matrix?:Matrix):Promise<Paint|null>{
  const ir=await object(page,id);
  if(ir?.[0]!=='RadialAxial'){unsupported('pdf-shading','网格渐变或图案需要局部合成');return null;}
@@ -183,7 +258,8 @@ export async function parsePage(page:Page,options:ParseOptions,progress:(p:numbe
  const old=s.fill;s.fill=p;paintPath(rect(x,y,r-x,b-y),[x,y,r,b],'fill');s.fill=old;}break;}
  case'paintImageXObject':await imageData(await object(page,a[0]));break;case'paintInlineImageXObject':await imageData(a[0]);break;
  case'paintImageMaskXObject':await imageData(a[0],true);break;
- case'beginText':s.tm=identity();s.tx=s.ty=s.lx=s.ly=0;break;case'endText':break;
+ case'beginText':s.tm=identity();s.tx=s.ty=s.lx=s.ly=0;textClips=[];textObject++;break;
+ case'endText':if(textClips.length){s.clips.push({kind:'group',name:'PDF 文字裁剪',sourceType:'pdf-text-clip',children:textClips});textClips=[];}break;
  case'setFont':await setFont(a[0],a[1]);break;
  case'setTextMatrix':s.tm=(Array.isArray(a[0])||ArrayBuffer.isView(a[0])?numbers(a[0] as ArrayLike<number>):a) as Matrix;s.tx=s.ty=s.lx=s.ly=0;break;
  case'setCharSpacing':s.char=a[0];break;case'setWordSpacing':s.word=a[0];break;case'setHScale':s.hscale=a[0]/100;break;
@@ -194,14 +270,15 @@ export async function parsePage(page:Page,options:ParseOptions,progress:(p:numbe
  case'showText':case'showSpacedText':await text(a[0]);break;
  case'nextLineShowText':s.tx=s.lx;s.ty=s.ly+=s.leading;await text(a[0]);break;
  case'nextLineSetSpacingShowText':s.word=a[0];s.char=a[1];s.tx=s.lx;s.ty=s.ly+=s.leading;await text(a[2]);break;
- case'beginMarkedContent':marked.push(s.visible);break;
- case'beginMarkedContentProps':marked.push(s.visible);if(a[0]==='OC')s.visible=s.visible&&optional.isVisible(a[1]);break;
- case'endMarkedContent':s.visible=marked.pop()??s.visible;break;
+ case'beginMarkedContent':marked.push(s.visible);tags.push(paragraphTag(a[0]));markedInfo.push({name:typeof a[0]==='string'?a[0]:a[0]?.name});break;
+ case'beginMarkedContentProps':marked.push(s.visible);tags.push(paragraphTag(a[0]));markedInfo.push({name:typeof a[0]==='string'?a[0]:a[0]?.name,id:typeof a[1]==='number'?a[1]:undefined});if(a[0]==='OC')s.visible=s.visible&&optional.isVisible(a[1]);break;
+ case'endMarkedContent':s.visible=marked.pop()??s.visible;tags.pop();markedInfo.pop();break;
  case'markPoint':case'markPointProps':case'setRenderingIntent':case'setFlatness':case'beginCompat':case'endCompat':break;
  default:unsupported('pdf-operator-'+op,'尚未支持 PDF 指令 '+op);
  }
  }
  if(stack.length||groups.length)throw new Error('PDF 状态栈未闭合');
- return nodes;
+ const clean=mergePdfParagraphs(simplifyPdfClips(duplicates.remove(semantic.restore(nodes)),(options.depth??0)===0?pageBox:undefined));
+ return options.batchPaths===false?clean:batchPdfPaths(clean);
 }
 

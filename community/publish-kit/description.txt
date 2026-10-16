@@ -4,9 +4,9 @@ Import design files. Keep creating.
 将 PDF、AI、EPS、PSD 等文件直接导入 Figma，在新项目中继续使用已有设计。转换在插件内完成，无需安装 Adobe 或额外转换程序，也不将源文件上传到转换服务器。
 
 支持的文件
-• PDF：每页生成一个画板，导入可解析的路径、文字轮廓和图片；扫描页仍为图片。
+• PDF：每页生成一个画板，导入可解析的路径、可编辑文字和图片；扫描页仍为图片。
 • AI：支持包含可读取 PDF 兼容内容或 PostScript 内容的 Illustrator 文件。
-• EPS / PS：在插件内转换后导入，保留可解析的路径、文字轮廓、图片和画板。
+• EPS / PS：在插件内转换后导入，保留可解析的路径、可编辑文字、图片和画板。
 • PSD / PSB：导入可解析的图层、形状、文字、蒙版、智能对象内容及已支持的效果。
 • .figimport：直接导入已有转换包。
 
@@ -14,7 +14,7 @@ Import design files. Keep creating.
 1. 在 Figma Design 文件中打开插件。
 2. 选择文件，或将文件拖入插件面板。
 3. 等待转换与图层创建完成。
-4. 查看导入结果和提示，核对字体与复杂效果，然后继续编辑。
+4. 缺失字体会使用默认字体保留可编辑文字，并在“需要注意”中明确提示。查看导入结果和提示，核对字体与复杂效果，然后继续编辑。
 
 导入说明
 • 优先生成可编辑的 Figma 内容。具体可编辑程度取决于源文件结构、字体和效果；部分内容可能保留为图片，文字可能转为轮廓或使用替代字体。
@@ -30,9 +30,9 @@ Bring existing designs into your Figma workflow.
 Import PDF, AI, EPS and PSD files directly into Figma. Conversion runs locally inside the plugin, with no Adobe installation or additional conversion software required. Source files are not uploaded to a conversion server.
 
 Supported files
-• PDF: One artboard per page, with supported paths, text outlines and images. Scanned pages remain images.
+• PDF: One artboard per page, with supported paths, editable text and images. Scanned pages remain images.
 • AI: Illustrator files containing readable PDF-compatible or PostScript content.
-• EPS / PS: In-plugin conversion of supported paths, text outlines, images and artboards.
+• EPS / PS: In-plugin conversion of supported paths, editable text, images and artboards.
 • PSD / PSB: Supported layers, shapes, text, masks, smart-object content and effects.
 • .figimport: Import an existing conversion package directly.
 
@@ -40,7 +40,7 @@ How to use
 1. Open the plugin in a Figma Design file.
 2. Select a file or drop it into the plugin panel.
 3. Wait for conversion and layer creation to finish.
-4. Review the results and notices, check fonts and complex effects, then continue editing.
+4. Missing fonts use a default font to preserve editable text, with a clear notice after import. Review fonts and complex effects, then continue editing.
 
 Before you import
 • The plugin prioritizes editable Figma content where supported. Editability depends on the source structure, fonts and effects. Some content may remain as images; text may become outlines or use substituted fonts.

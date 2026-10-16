@@ -67,19 +67,19 @@ async function glyphScene(emptyPath){
  const store={has:id=>objects.has(id),get:id=>objects.get(id)};
  const a={fontChar:'A',unicode:'A',width:500,isSpace:false};
  return parsePage({view:[0,0,100,100],getViewport:()=>({width:100,height:100,transform:[1,0,0,1,0,0]}),objs:store,commonObjs:store,
- getOperatorList:async()=>({fnArray:[OPS.setFont,OPS.setCharSpacing,OPS.setWordSpacing,OPS.setHScale,OPS.showText,OPS.showText],
- argsArray:[['g_font',20],[1],[3],[150],[[a,{fontChar:'blank',unicode:' ',width:250,isSpace:true},-100,{fontChar:'blank',unicode:'\u200b',width:100,isSpace:false}]],[[a,{fontChar:'missing',unicode:'?',width:200,isSpace:false}]]]})}, {},()=>{},1,{isVisible:()=>true});
+ getOperatorList:async()=>({fnArray:[OPS.setFont,OPS.setTextRenderingMode,OPS.setCharSpacing,OPS.setWordSpacing,OPS.setHScale,OPS.showText,OPS.showText],
+ argsArray:[['g_font',20],[1],[1],[3],[150],[[a,{fontChar:'blank',unicode:' ',width:250,isSpace:true},-100,{fontChar:'blank',unicode:'\u200b',width:100,isSpace:false}]],[[a,{fontChar:'missing',unicode:'?',width:200,isSpace:false}]]]})}, {},()=>{},1,{isVisible:()=>true});
 }
 for(const path of [[4],[4,4],[]]){
- const nodes=await glyphScene(path),vectors=nodes.filter(n=>n.kind==='vector');
+ const nodes=await glyphScene(path),texts=nodes.filter(n=>n.kind==='text');
  test('PDF 空字形 '+JSON.stringify(path)+' 不创建路径，保留宽度、字距、词距、TJ 调整和后续文字位置',()=>{
-  assert.equal(vectors.length,2);assert.ok(vectors.every(n=>n.paths.every(p=>/^M/.test(p.data))));
-  assert.equal(vectors[0].transform[4],0);assert.equal(vectors[1].transform[4],37.5);
-  assert.equal(nodes.filter(n=>n.issues?.some(i=>i.code==='pdf-missing-outline')).length,1,'A truly missing glyph must still be reported');
+  assert.deepEqual(texts.map(n=>n.characters),['A \u200bA?']);assert.equal(nodes.filter(n=>n.kind==='vector').length,0);
+  assert.equal(texts[0].transform[4],0);assert.equal(texts[0].pdfLayout.advance,41);
+  assert.equal(nodes.filter(n=>n.issues?.some(i=>i.code==='pdf-missing-outline')).length,0,'Readable Unicode needs no source glyph outline');
  });
 }
 const degenerateGlyphs=await glyphScene([0,0,0,1,0,0,4]);
-test('保留有轮廓的空白字形和零长度线段，避免丢失可见描边',()=>assert.equal(degenerateGlyphs.filter(n=>n.kind==='vector').length,4));
+test('文字描边使用原生 TEXT，不依赖空字形或零长度轮廓',()=>assert.equal(degenerateGlyphs.filter(n=>n.kind==='text').length,1));
 function pdf(objects){
  let str='%PDF-1.7\n',offsets=[0];for(let i=0;i<objects.length;i++){offsets.push(Buffer.byteLength(str));str+=(i+1)+' 0 obj\n'+objects[i]+'\nendobj\n';}
  const start=Buffer.byteLength(str);str+='xref\n0 '+(objects.length+1)+'\n0000000000 65535 f \n';
@@ -95,9 +95,9 @@ const bytes=pdf(['<< /Type /Catalog /Pages 2 0 R >>','<< /Type /Pages /Kids [3 0
 '<< /Type /Pattern /PatternType 2 /Shading 6 0 R /Matrix [1 0 0 1 0 0] >>']);
 fs.writeFileSync('.test-output/operator-fixture.pdf',bytes);
 const result=await parseFile('synthetic.ai',bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.length));
-test('PDF 按源顺序保留图片、矢量和共享裁剪',()=>{
+test('PDF 按源顺序保留图片和矢量，删除未截掉内容的矩形裁剪',()=>{
  assert.equal(result.nodes[0].kind,'frame');assert.equal(result.nodes[0].clip,true);
- const mask=result.nodes[0].children[0];assert.equal(mask.kind,'mask');assert.deepEqual(mask.children.map(n=>n.kind),['vector','image','vector']);
+ assert.deepEqual(result.nodes[0].children.slice(0,3).map(n=>n.kind),['vector','image','vector']);
  assert.equal(walk(result.nodes).filter(n=>n.kind==='image').length,1);
 });
 test('PDF shading 和 pattern shading 保持原生渐变',()=>{

@@ -1,9 +1,0 @@
-{
-  "extends": "./tsconfig.base.json",
-  "compilerOptions": {
-    "target": "ES2019",
-    "lib": ["ES2019"],
-    "types": ["@figma/plugin-typings"]
-  },
-  "include": ["src/code.ts", "src/types.ts", "src/font.ts", "src/util.ts", "src/svg.ts"]
-}

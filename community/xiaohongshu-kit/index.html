@@ -1,0 +1,28 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>小红书宣传素材</title><style>*{box-sizing:border-box}body{margin:0;background:#f2eee7;color:#292332;font-family:Arial,'Microsoft YaHei',sans-serif}main{max-width:1280px;margin:auto;padding:50px 35px}h1{font-size:30px}p{color:#877991;line-height:1.8}.copy{background:white;padding:25px;border-radius:18px;margin:20px 0}.row{display:flex;justify-content:space-between;align-items:center}h2{font-size:18px;margin:0}button,a{color:#6842dc}button{padding:10px 18px;background:#f1eafa;border:0;border-radius:8px;cursor:pointer}textarea{width:100%;border:1px solid #e5dfed;padding:15px;border-radius:10px;font:16px/1.9 Arial,'Microsoft YaHei',sans-serif;margin-top:15px;resize:vertical}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:25px;margin-top:40px}.card img{width:100%;display:block;border-radius:15px}.card div{display:flex;align-items:center;justify-content:space-between;margin:0 0 12px;font-size:14px}.card:last-child{max-width:580px}footer{font-size:13px;color:#8a7b94;margin-top:45px;line-height:1.9}@media(max-width:700px){main{padding:25px 18px}.grid{grid-template-columns:1fr}}</style></head><body><main><h1>小红书图文宣传 · 5 张竖版配图</h1><p>1200 × 1600 px / 3:4 · 中文文案 · 按 01–05 顺序上传<br>已上线 Figma 社区 · 文案与配图已更新。</p><section class="copy"><div class="row"><h2>推荐标题</h2><button data-copy="title">复制标题</button></div><textarea id="title" rows="1">做了个插件，把设计稿搬进Figma</textarea></section><section class="copy"><div class="row"><h2>正文 + 话题标签</h2><button data-copy="body">复制正文</button></div><textarea id="body" rows="15">拿到 PSD、AI、PDF 文件，想放进 Figma 继续改，往往得先折腾一轮格式。
+
+所以我做了一个设计文件导入插件，现在已经正式上线 Figma 社区了，来分享一下 👀
+
+它会尽量把源文件中能解析的画板、图层、路径和图片带进 Figma，让已有设计能在新项目里继续用。
+
+📂 能导入哪些文件？
+· PSD / PSB：支持的图层、形状、文字及效果
+· AI：需包含可读取的 PDF 或 PostScript 内容
+· PDF：每页生成画板，扫描页仍是图片
+· EPS / PS：转换后导入支持的路径、文字轮廓和图片
+
+🖱️ 怎么用？
+打开插件 → 选择或拖入文件 → 等待导入 → 检查结果，继续编辑。
+界面是中文，不用安装 Adobe，也不用额外安装转换程序。
+
+🔒 转换在插件内完成，源文件不上传转换服务器。导入后的内容按 Figma 正常的文件保存机制保存。
+
+也把目前的边界说清楚：
+不是所有内容都能完整还原、继续编辑。文字可能转为轮廓或使用替代字体，复杂效果可能有差异；较大的文件建议按画板拆分。
+
+如果你也经常在不同设计工具之间搬文件，希望它能帮你少做一点重复工作。
+
+🔎 想试试的话，在 Figma 社区搜索「PDF/AI/EPS/PSD」，找到这款导入器即可。
+
+你最想导入哪种文件？PSD、AI，还是多页 PDF？欢迎聊聊你的使用场景～
+
+#Figma #Figma插件 #设计工具 #UI设计 #设计师日常 #Photoshop #Illustrator #效率工具</textarea></section><section class="grid"><article class="card"><div><h2>01 / 封面 · 设计文件导入</h2><a href="images/01-cover.png" download>下载 PNG</a></div><img src="images/01-cover.png" alt="封面 · 设计文件导入"></article><article class="card"><div><h2>02 / 可保留的内容</h2><a href="images/02-content.png" download>下载 PNG</a></div><img src="images/02-content.png" alt="可保留的内容"></article><article class="card"><div><h2>03 / 真实界面与操作</h2><a href="images/03-workflow.png" download>下载 PNG</a></div><img src="images/03-workflow.png" alt="真实界面与操作"></article><article class="card"><div><h2>04 / 支持格式与条件</h2><a href="images/04-formats.png" download>下载 PNG</a></div><img src="images/04-formats.png" alt="支持格式与条件"></article><article class="card"><div><h2>05 / 导入提醒与互动</h2><a href="images/05-notes.png" download>下载 PNG</a></div><img src="images/05-notes.png" alt="导入提醒与互动"></article></section><footer>插件版本：2.1.0-preview.7 · 图片 01/02 为标注过的功能示意，03 为现有代码渲染的插件界面。<br>更多备选标题与说明见 <a href="README.md">README</a>。</footer></main><script>document.querySelectorAll('[data-copy]').forEach(b=>b.onclick=async()=>{const t=document.getElementById(b.dataset.copy);try{await navigator.clipboard.writeText(t.value)}catch{t.focus();t.select();document.execCommand('copy')}b.textContent='已复制 ✓'});</script></body></html>

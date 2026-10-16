@@ -5,6 +5,7 @@
 | PDF.js | 6.3.289 | Apache-2.0 |
 | ag-psd | 31.0.2 | MIT |
 | fflate | 0.8.2 | MIT |
+| svgpath | 2.6.0 | MIT；https://github.com/fontello/svgpath |
 | @okathira/ghostpdl-wasm | 1.1.0 | AGPL-3.0-or-later |
 | 内置 Ghostscript | 10.06.0 | AGPL；商业授权由 Artifex 提供 |
 

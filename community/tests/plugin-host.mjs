@@ -1,6 +1,6 @@
 // Local execution harness for shipped code.js + ui.html. This is NOT a Figma
 // renderer. Geometry is approximate; the miter setter uses Figma's real bounds.
-export function pluginHost(){
+export function pluginHost(options={}){
  let sequence=0,imageSequence=0;const writes=[],messages=[],resizes=[];
  const matrix=(a,b)=>[[a[0][0]*b[0][0]+a[0][1]*b[1][0],a[0][0]*b[0][1]+a[0][1]*b[1][1],a[0][0]*b[0][2]+a[0][1]*b[1][2]+a[0][2]],
  [a[1][0]*b[0][0]+a[1][1]*b[1][0],a[1][0]*b[0][1]+a[1][1]*b[1][1],a[1][0]*b[0][2]+a[1][1]*b[1][2]+a[1][2]]];
@@ -23,6 +23,22 @@ export function pluginHost(){
  }
  const page=new Node('PAGE');page.selection=[];
  const create=type=>{const node=new Node(type);page.appendChild(node);return node;};
+ const fontKey=f=>f.family+'/'+f.style,loadedFonts=new Set(),fontLoads=[];
+ const checkFont=f=>{if(!f||!loadedFonts.has(fontKey(f)))throw new Error('Text write before loadFontAsync');};
+ class Text extends Node{
+  constructor(){super('TEXT');this.ranges=[];this.value='';}
+  set fontName(font){checkFont(font);this.face=font;}
+  get fontName(){return this.face;}
+  set characters(value){checkFont(this.face);this.value=value;this.width=Math.max(1,value.length*10);this.height=20;}
+  get characters(){return this.value;}
+  range(start,end,property,value){if(start<0||end>this.value.length||end<=start)throw new Error('Invalid text range');this.ranges.push({start,end,property,value});}
+  setRangeFontName(start,end,font){checkFont(font);this.range(start,end,'fontName',font);}
+  setRangeFontSize(start,end,value){this.range(start,end,'fontSize',value);}
+  setRangeFills(start,end,value){this.range(start,end,'fills',value);}
+  setRangeLetterSpacing(start,end,value){this.range(start,end,'letterSpacing',value);}
+  setRangeLineHeight(start,end,value){this.range(start,end,'lineHeight',value);}
+    setRangeParagraphIndent(start,end,value){this.range(start,end,'paragraphIndent',value);}
+ }
  const group=(children,parent,type='GROUP')=>{
   const node=new Node(type),x=Math.min(...children.map(n=>n.x)),y=Math.min(...children.map(n=>n.y));
   node.x=x;node.y=y;node.width=Math.max(.001,...children.map(n=>n.x+n.width-x));node.height=Math.max(.001,...children.map(n=>n.y+n.height-y));parent.appendChild(node);
@@ -30,7 +46,9 @@ export function pluginHost(){
  };
  const figma={currentPage:page,viewport:{scrollAndZoomIntoView(){}},ui:{onmessage:null,resize(width,height){resizes.push({width,height});const frame=document.querySelector('iframe');frame.style.width=width+'px';frame.style.height=height+'px';},postMessage(msg){messages.push(msg);document.querySelector('iframe')?.contentWindow.postMessage({pluginMessage:msg},'*');}},
   showUI(html,options){document.title=options.title||'Plugin test';const iframe=document.createElement('iframe');iframe.setAttribute('sandbox','allow-scripts allow-same-origin allow-downloads');iframe.style.cssText='display:block;width:'+options.width+'px;height:'+options.height+'px;border:0';document.body.replaceChildren(iframe);iframe.srcdoc=html;},
-  listAvailableFontsAsync:async()=>[],loadFontAsync:async()=>{},createFrame:()=>create('FRAME'),createVector:()=>create('VECTOR'),
+  listAvailableFontsAsync:async()=>(options.fonts||[]).map(fontName=>({fontName})),
+  loadFontAsync:async font=>{fontLoads.push(font);if(!(options.fonts||[]).some(f=>fontKey(f)===fontKey(font))||(options.failFonts||[]).includes(fontKey(font)))throw new Error('Font unavailable');loadedFonts.add(fontKey(font));},
+  createText:()=>{const node=new Text();page.appendChild(node);return node;},createFrame:()=>create('FRAME'),createVector:()=>create('VECTOR'),
   createImage(bytes){if(!ArrayBuffer.isView(bytes)||!bytes.byteLength)throw new Error('Missing image bytes');return{hash:'image-'+(++imageSequence)};},
   getNodeByIdAsync:async id=>nodes.get(id)||null,group,
   union:(children,parent)=>group(children,parent,'BOOLEAN_OPERATION'),subtract:(children,parent)=>group(children,parent,'BOOLEAN_OPERATION'),intersect:(children,parent)=>group(children,parent,'BOOLEAN_OPERATION'),exclude:(children,parent)=>group(children,parent,'BOOLEAN_OPERATION'),
@@ -38,7 +56,7 @@ export function pluginHost(){
    const node=new Node('VECTOR');node.fills=[{type:'SOLID',color:{r:0,g:0,b:0}}];if(element.tagName==='path')node.vectorPaths=[{data:element.getAttribute('d')||'',windingRule:'NONZERO'}];frame.appendChild(node);
   }return frame;}
  };
- const state={figma,writes,messages,resizes,imports:[],unhandled:[]};
+ const state={figma,writes,messages,resizes,fontLoads,imports:[],unhandled:[]};
  window.addEventListener('message',event=>{const msg=event.data?.pluginMessage;if(msg){if(msg.type==='import')state.imports.push({fileName:msg.fileName,stats:msg.result.stats});Promise.resolve(figma.ui.onmessage?.(msg)).catch(error=>state.unhandled.push(String(error)));}});
  return state;
 }

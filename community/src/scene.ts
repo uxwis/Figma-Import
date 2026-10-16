@@ -10,10 +10,15 @@ export function inverse(a: Matrix): Matrix {
 }
 export function translateNodes(nodes: ParsedNode[], x: number, y: number): void {
   for (const n of nodes) {
+    if(n.vectorOverlay)n.vectorOverlay.reference=multiply([1,0,0,1,x,y],n.vectorOverlay.reference);
     if (n.transform) n.transform=multiply([1,0,0,1,x,y],n.transform);
     else if ('x' in n) { n.x+=x; n.y+=y; }
     else translateNodes(childrenOf(n), x, y);
     if(n.kind==='text'){
+      if(n.textOverlay)n.textOverlay.reference=multiply([1,0,0,1,x,y],n.textOverlay.reference);
+      if(n.pdfTextPaints)n.pdfTextPaints.reference=multiply([1,0,0,1,x,y],n.pdfTextPaints.reference);
+      for(const run of n.styleRuns||[])if(run.pdfReference)run.pdfReference=multiply([1,0,0,1,x,y],run.pdfReference);
+      if(n.pdfLayout?.bounds){n.pdfLayout.bounds.x+=x;n.pdfLayout.bounds.y+=y;}
       if(n.inkBounds){n.inkBounds.x+=x;n.inkBounds.y+=y;}
       if(n.fallback)translateNodes([n.fallback],x,y);
     }

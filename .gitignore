@@ -18,13 +18,8 @@ __pycache__/
 .debug*.mjs
 .inspect-*.mjs
 test-*-bundle.js
-helper/parser.mjs
 
 # Generated plugin entry files; src/ui.html must remain tracked.
-/code.js
-/ui.js
-/ui.html
-/build-info.json
 /community/code.js
 /community/ui.js
 /community/ui.html

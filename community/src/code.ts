@@ -2,7 +2,7 @@ import { buildScene } from './builder';
 import {importError,LOAD_ERROR} from './import-errors';
 import type { ParseResult } from './types';
 import { BUILD_ID, PLUGIN_VERSION } from './version';
-figma.showUI(__html__,{width:440,height:520,themeColors:true,title:'PDF/AI/EPS/PSD 导入器 · 社区版 '+PLUGIN_VERSION});
+figma.showUI(__html__,{width:440,height:520,themeColors:true,title:'FigImport'});
 let busy=false,cancelled=false;
 figma.ui.onmessage=async(msg:{type:string;result?:ParseResult;fileName?:string;requestId?:string;buildId?:string})=>{
   if(msg.type==='get-build'){figma.ui.postMessage({type:'build-info',version:PLUGIN_VERSION,buildId:BUILD_ID});return;}

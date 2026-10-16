@@ -17,6 +17,8 @@ export type Common = {
   name: string; sourceId?: string; sourceType?: string; sourceAssetId?: string;
   opacity?: number; visible?: boolean; blendMode?: string; transform?: Matrix;
   effects?: Effect[]; overlays?: Paint[]; fidelity?: Fidelity; issues?: { code: string; message: string }[];
+  /** Opaque normal PSD overlay on native vector paths; reference pixels -> parent space. */
+  vectorOverlay?: {paints:Paint[];reference:Matrix};
   recovery?: boolean;
   /** Proven against a fixed opaque white artboard backdrop; original paints stay in source data. */
   whiteBackdropBlend?: { sourceMode: 'hard mix'; artboardId: string };
@@ -35,9 +37,14 @@ export type ParsedVector = Common & {
 export type ParsedImage = Common & { kind: 'image'; bytes?: Uint8Array; resourceId?: string;
   x: number; y: number; width: number; height: number };
 export type ParsedFont = { candidates: string[]; style: string; postScriptName?: string };
+export type PdfTextPaints={fills:Paint[];strokes:Paint[];strokeWidth:number;reference:Matrix};
 export type ParsedTextStyleRun = { length: number; fontSize?: number; font?: ParsedFont;
-  color?: RGB; tracking?: number; leading?: number };
+  color?: RGB; tracking?: number; leading?: number; paragraphIndent?:number; pdfFills?:Paint[];pdfReference?:Matrix };
 export type ParsedText = Common & {
+  textOverlay?: {paints:Paint[];reference:Matrix};
+  pdfTextPaints?: PdfTextPaints;
+  pdfLayout?:{object:number;span:number;tag?:string;vertical?:boolean;advance:number;
+    bounds?:{x:number;y:number;width:number;height:number};paragraph?:boolean;lineCount?:number;sourceIds?:string[]};
   kind: 'text'; characters: string; x: number; y: number; width?: number; height?: number;
   fontSize?: number; font?: ParsedFont; color?: RGB; fillOpacity?: number; tracking?: number; leading?: number;
   align?: 'left' | 'center' | 'right'; box?: boolean; styleRuns?: ParsedTextStyleRun[];
@@ -54,7 +61,7 @@ export type ParseStats = { groups: number; vectors: number; images: number; text
 export type ParseResult = { version: 2; width: number; height: number; nodes: ParsedNode[];
   warnings: string[]; diagnostics: Diagnostic[]; resources: Record<string, Uint8Array>;
   stats: ParseStats; reference?: string };
-export type ParseOptions = { signal?: { readonly aborted: boolean }; depth?: number; ancestry?: string[] };
+export type ParseOptions = { signal?: { readonly aborted: boolean }; depth?: number; ancestry?: string[]; batchPaths?:boolean };
 export function emptyStats(): ParseStats {
   return { groups: 0, vectors: 0, images: 0, texts: 0, artboards: 0, masks: 0, outlinedTexts: 0, rasterized: 0, unsupported: 0 };
 }

@@ -78,15 +78,16 @@ try{
  const tiny=writePsd({width:10,height:10,imageData:rgba(10,10),children:[{name:'pixels',imageData:rgba(2,2)}]});
  await home.page.evaluate(()=>{window.__delayBuild=true;});
  await home.frame.locator('#file').setInputFiles({name:'tiny.PSD',mimeType:'application/octet-stream',buffer:Buffer.from(tiny)});
- await home.frame.locator('#msg').filter({hasText:'解析完成，开始创建 Figma 图层'}).waitFor();await capture(home,'progress');
+ await home.frame.locator('#msg').filter({hasText:'正在读取 Figma 字体…'}).waitFor();await capture(home,'progress');
  await home.page.waitForFunction(()=>typeof window.__releaseBuild==='function');await home.page.evaluate(()=>{window.__delayBuild=false;window.__releaseBuild();});
  await home.frame.locator('#again').waitFor();assert.equal(await home.frame.locator('h1').innerText(),'导入完成');
  assert.equal(await home.frame.locator('.warnings').count(),0);await noRemovedUI(home.frame);await capture(home,'done-clean');
  assert.equal(await home.frame.locator('button').count(),1);
  const d=(code,status='unsupported',extra={})=>({sourceId:code,name:'SECRET-LAYER',code,status,message:'Raw technical details',...extra});
- const diagnostics=[...Array(200).fill(d('text-fallback','rasterized')),d('stroke-miter-limit','editable',{strokeAppearance:'unchanged'}),d('shadow-contour','unsupported',{issues:[{code:'shadow-contour',message:'shadow'},{code:'missing-content',message:'missing'}]})];
+ const diagnostics=[...Array(200).fill(d('text-fallback','rasterized')),d('text-default-font','editable'),d('stroke-miter-limit','editable',{strokeAppearance:'unchanged'}),d('shadow-contour','unsupported',{issues:[{code:'shadow-contour',message:'shadow'},{code:'missing-content',message:'missing'}]})];
  await home.document.evaluate(diagnostics=>window.postMessage({pluginMessage:{type:'done',stats:{artboards:16},nativeStats:{vectors:1103,texts:0,images:311},diagnostics}},'*'),diagnostics);
  await home.frame.locator('.warnings li').nth(2).waitFor();assert.equal(await home.frame.locator('.warnings li').count(),3);
+ assert.match(await home.frame.locator('.warnings').innerText(),/原字体缺失或无法加载，已使用默认字体替代并保留可编辑文字/);
  assert.ok(!(await home.frame.locator('body').innerText()).includes('SECRET-LAYER'));await capture(home,'done-notices');
  // Runtime memory errors are readable as well, on either side of the bridge.
  await home.document.evaluate(()=>window.postMessage({pluginMessage:{type:'done',error:'Exceeded memory limit'}},'*'));

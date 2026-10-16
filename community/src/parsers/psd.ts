@@ -10,6 +10,7 @@ import { createCanvas, downscaleToLimit, toPng, MAX_IMAGE_DIM } from '../canvas'
 import { parseFontName, applyFaux } from '../font';
 import { createWarns, clamp01 } from '../util';
 import { type Box, boxWidth, boxHeight } from '../svg';
+import {normalizeSvgViewport} from './svgViewport';
 import {checkPsdDimensions,preflightPsd} from '../psd-preflight';
 import {PSD_DECODE_LIMIT} from '../conversion-limits';
 import {importError,MEMORY_ERROR} from '../import-errors';
@@ -98,10 +99,26 @@ async function layer(l:Layer,ctx:Context,path:string):Promise<ParsedNode|null> {
   if(!n&&l.vectorMask?.paths?.length&&(l.vectorFill||l.vectorStroke)){n=shape(l,ctx,c);}
   if(!n&&(l.imageData||l.canvas)){n=await imageLayer(l,ctx,c);}
   if(!n){n={kind:'group',...c,children:[]};issue(n,'missing-content',l.adjustment?'调整图层尚未支持':'图层没有可读取内容');}
+  if(n.kind==='text'&&n.overlays?.length&&!n.issues?.some(i=>i.code==='text-warp')&&n.overlays.every(p=>(p.blendMode||'NORMAL')==='NORMAL')){
+    const b=bounds(l);
+    n.textOverlay={paints:n.overlays,reference:[1,0,0,1,b.minX,b.minY]};
+    delete n.overlays;
+  }
+  if(n.overlays?.length&&directVectorOverlay(n)){
+    const b=bounds(l);
+    n.vectorOverlay={paints:n.overlays,reference:[1,0,0,1,b.minX,b.minY]};
+    delete n.overlays;
+  }
   if(n.overlays?.length){
     const alpha:ParsedNode=await imageLayer({...l,effects:undefined,opacity:1,fillOpacity:1},ctx,{name:'叠加效果透明度蒙版',sourceType:'mask',opacity:1})||clone(n);
     if(alpha){
       const fills=n.overlays;delete n.overlays;delete alpha.overlays;alpha.effects=[];alpha.opacity=1;alpha.blendMode='NORMAL';alpha.sourceType='mask';alpha.sourceId=path+'/overlay-alpha';
+      if(n.sourceType==='vector-smart-object'&&alpha.kind==='image'){
+        alpha.fidelity='rasterized';issue(alpha,'vector-overlay-fallback','该矢量对象的叠加效果仍依赖缓存图片蒙版，请核对编辑能力',false);
+      }
+      if(n.kind==='text'&&alpha.kind==='image'){
+        alpha.fidelity='rasterized';issue(alpha,'text-overlay-fallback','该文字的特殊叠加效果仍依赖缓存图片蒙版，请核对编辑能力',false);
+      }
       const b=sceneBounds(alpha),w=boxWidth(b),h=boxHeight(b);
       const rect:ParsedVector={kind:'vector',name:'颜色 / 渐变叠加',sourceId:path+'/overlay-paint',sourceType:'effect',x:b.minX,y:b.minY,width:w,height:h,
         paths:[{data:'M0 0H'+w+'V'+h+'H0Z',windingRule:'NONZERO'}],fills};
@@ -133,6 +150,16 @@ async function layer(l:Layer,ctx:Context,path:string):Promise<ParsedNode|null> {
     if(mask)n={kind:'mask',name:n.name,sourceId:path+'/pixel-mask',mask,maskType:'ALPHA',children:[n]};
   }
   return n;
+}
+/** Only replace effects whose compositing is exactly a recolour of the source alpha. */
+function directVectorOverlay(n:ParsedNode):boolean{
+  if(n.sourceType!=='vector-smart-object'||!n.overlays?.length)return false;
+  if(!n.overlays.every(p=>(p.blendMode||'NORMAL')==='NORMAL'&&(p.opacity??1)===1&&
+    (p.type==='SOLID'?(p.color?.a??1)===1:!!p.stops?.length&&p.stops.every(s=>(s.color.a??1)===1))))return false;
+  const simple=(node:ParsedNode):boolean=>node.kind==='vector'&&!!node.svg&&
+    !/<(?:[\w-]+:)?(?:image|filter|foreignObject|pattern|mask|text|linearGradient|radialGradient)\b/i.test(node.svg)||
+    node.kind==='group'&&node.children.length>0&&node.children.every(simple);
+  return simple(n);
 }
 function shape(l:Layer,ctx:Context,c:Common):ParsedVector {
   const paths=l.vectorMask!.paths,full=buildShapePath(paths.map(p=>({...p,operation:'combine'})));
@@ -244,9 +271,10 @@ async function smart(l:Layer,ctx:Context,c:Common):Promise<ParsedNode|null>{
     if(!promise){promise=(async()=>{
       if(isPsd)return parsePSD(file.data!.slice().buffer as ArrayBuffer,undefined,opts);
       if(isPdf){const {parseAIorEPS}=await import('./aiEps');return parseAIorEPS(file.data!.slice().buffer as ArrayBuffer,undefined,opts);}
-      const svg=new TextDecoder().decode(file.data!).replace(/<script\b[\s\S]*?<\/script>/gi,'').replace(/<\?xml[^>]*>/g,'').replace(/<!DOCTYPE[\s\S]*?>/gi,'')
+      const source=normalizeSvgViewport(new TextDecoder().decode(file.data!),w,h);
+      const svg=source.svg.replace(/<script\b[\s\S]*?<\/script>/gi,'').replace(/<\?xml[^>]*>/g,'').replace(/<!DOCTYPE[\s\S]*?>/gi,'')
         .replace(/<svg\b([^>]*)>/,(_match,attrs:string)=>'<svg '+attrs.replace(/\b(?:width|height|preserveAspectRatio)\s*=\s*(["']).*?\1/gi,'')+' width="'+w+'" height="'+h+'" preserveAspectRatio="none">');
-      return finishScene(w,h,[{kind:'vector',name:file.name||'SVG',x:0,y:0,width:w,height:h,svg}]);
+      return finishScene(w,h,[{kind:'vector',name:file.name||'SVG',x:0,y:0,width:w,height:h,svg,sourceData:source.adjusted?{svgArtworkViewportAdjusted:true}:undefined}]);
     })();ctx.assets.set(placed.id,promise);}
     const result=clone(await promise),children=materializeResources(result);
     const namespace=(nodes:ParsedNode[])=>{for(const node of nodes){node.sourceId=c.sourceId+'/asset/'+(node.sourceId||node.name);namespace(childrenOf(node));}};namespace(children);
